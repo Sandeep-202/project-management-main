@@ -1,8 +1,9 @@
+
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import api from "../configs/api.js";
 
 /* =========================================
-   FETCH WORKSPACES (FIXED)
+   FETCH WORKSPACES
 ========================================= */
 export const fetchWorkspaces = createAsyncThunk(
   "workspace/fetchWorkspaces",
@@ -27,7 +28,7 @@ export const fetchWorkspaces = createAsyncThunk(
       return data?.workspaces || [];
     } catch (error) {
       return thunkAPI.rejectWithValue(
-        error?.response?.data?.message || "Unauthorized / API Error"
+        error?.response?.data?.message || "API Error / Unauthorized"
       );
     }
   }
@@ -51,17 +52,19 @@ const workspaceSlice = createSlice({
   initialState,
 
   reducers: {
-    /* SET WORKSPACES */
+    /* SET ALL WORKSPACES */
     setWorkspaces: (state, action) => {
       state.workspaces = action.payload || [];
     },
 
     /* SET CURRENT WORKSPACE */
     setCurrentWorkspace: (state, action) => {
-      localStorage.setItem("currentWorkspaceId", action.payload);
+      const id = action.payload;
+
+      localStorage.setItem("currentWorkspaceId", id);
 
       state.currentWorkspace =
-        state.workspaces.find((w) => w.id === action.payload) || null;
+        state.workspaces.find((w) => w.id === id) || null;
     },
 
     /* ADD WORKSPACE */
@@ -72,22 +75,24 @@ const workspaceSlice = createSlice({
 
     /* UPDATE WORKSPACE */
     updateWorkspace: (state, action) => {
-      state.workspaces = state.workspaces.map((workspace) =>
-        workspace.id === action.payload.id ? action.payload : workspace
+      const updated = action.payload;
+
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === updated.id ? updated : w
       );
 
-      if (state.currentWorkspace?.id === action.payload.id) {
-        state.currentWorkspace = action.payload;
+      if (state.currentWorkspace?.id === updated.id) {
+        state.currentWorkspace = updated;
       }
     },
 
     /* DELETE WORKSPACE */
     deleteWorkspace: (state, action) => {
-      state.workspaces = state.workspaces.filter(
-        (workspace) => workspace.id !== action.payload
-      );
+      const id = action.payload;
 
-      if (state.currentWorkspace?.id === action.payload) {
+      state.workspaces = state.workspaces.filter((w) => w.id !== id);
+
+      if (state.currentWorkspace?.id === id) {
         state.currentWorkspace = state.workspaces[0] || null;
       }
     },
@@ -103,16 +108,13 @@ const workspaceSlice = createSlice({
         project,
       ];
 
-      state.workspaces = state.workspaces.map((workspace) =>
-        workspace.id === state.currentWorkspace.id
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
           ? {
-              ...workspace,
-              projects: [
-                ...(workspace.projects || []),
-                project,
-              ],
+              ...w,
+              projects: [...(w.projects || []), project],
             }
-          : workspace
+          : w
       );
     },
 
@@ -120,33 +122,34 @@ const workspaceSlice = createSlice({
     addTask: (state, action) => {
       if (!state.currentWorkspace?.projects) return;
 
-      const { projectId } = action.payload;
+      const task = action.payload;
 
-      state.currentWorkspace.projects =
-        state.currentWorkspace.projects.map((project) => {
-          if (project.id === projectId) {
-            project.tasks = [...(project.tasks || []), action.payload];
+      state.currentWorkspace.projects = state.currentWorkspace.projects.map(
+        (project) => {
+          if (project.id === task.projectId) {
+            return {
+              ...project,
+              tasks: [...(project.tasks || []), task],
+            };
           }
           return project;
-        });
+        }
+      );
 
-      state.workspaces = state.workspaces.map((workspace) =>
-        workspace.id === state.currentWorkspace.id
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
           ? {
-              ...workspace,
-              projects: (workspace.projects || []).map((project) =>
-                project.id === projectId
+              ...w,
+              projects: (w.projects || []).map((project) =>
+                project.id === task.projectId
                   ? {
                       ...project,
-                      tasks: [
-                        ...(project.tasks || []),
-                        action.payload,
-                      ],
+                      tasks: [...(project.tasks || []), task],
                     }
                   : project
               ),
             }
-          : workspace
+          : w
       );
     },
 
@@ -154,37 +157,38 @@ const workspaceSlice = createSlice({
     updateTask: (state, action) => {
       if (!state.currentWorkspace?.projects) return;
 
-      const { projectId, id } = action.payload;
+      const task = action.payload;
 
-      state.currentWorkspace.projects =
-        state.currentWorkspace.projects.map((project) => {
-          if (project.id === projectId) {
+      state.currentWorkspace.projects = state.currentWorkspace.projects.map(
+        (project) => {
+          if (project.id === task.projectId) {
             return {
               ...project,
-              tasks: (project.tasks || []).map((task) =>
-                task.id === id ? action.payload : task
+              tasks: (project.tasks || []).map((t) =>
+                t.id === task.id ? task : t
               ),
             };
           }
           return project;
-        });
+        }
+      );
 
-      state.workspaces = state.workspaces.map((workspace) =>
-        workspace.id === state.currentWorkspace.id
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
           ? {
-              ...workspace,
-              projects: (workspace.projects || []).map((project) =>
-                project.id === projectId
+              ...w,
+              projects: (w.projects || []).map((project) =>
+                project.id === task.projectId
                   ? {
                       ...project,
-                      tasks: (project.tasks || []).map((task) =>
-                        task.id === id ? action.payload : task
+                      tasks: (project.tasks || []).map((t) =>
+                        t.id === task.id ? task : t
                       ),
                     }
                   : project
               ),
             }
-          : workspace
+          : w
       );
     },
 
@@ -196,26 +200,27 @@ const workspaceSlice = createSlice({
         ? action.payload
         : [action.payload];
 
-      state.currentWorkspace.projects =
-        state.currentWorkspace.projects.map((project) => ({
+      state.currentWorkspace.projects = state.currentWorkspace.projects.map(
+        (project) => ({
           ...project,
           tasks: (project.tasks || []).filter(
             (task) => !taskIds.includes(task.id)
           ),
-        }));
+        })
+      );
 
-      state.workspaces = state.workspaces.map((workspace) =>
-        workspace.id === state.currentWorkspace.id
+      state.workspaces = state.workspaces.map((w) =>
+        w.id === state.currentWorkspace.id
           ? {
-              ...workspace,
-              projects: (workspace.projects || []).map((project) => ({
+              ...w,
+              projects: (w.projects || []).map((project) => ({
                 ...project,
                 tasks: (project.tasks || []).filter(
                   (task) => !taskIds.includes(task.id)
                 ),
               })),
             }
-          : workspace
+          : w
       );
     },
   },
